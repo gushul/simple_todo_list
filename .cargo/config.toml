@@ -1,0 +1,10 @@
+[target.'cfg(all())']
+rustflags = ["-D", "warnings"]
+
+[alias]
+b = "build"
+c = "check"
+t = "test"
+r = "run"
+rr = "run --release"
+br = "build --release"
