@@ -14,7 +14,7 @@ pub struct TodoListService {
 
 impl TodoListService {
     pub fn new() -> Self {
-        TodoListService {
+        Self {
             tasks: HashMap::new(),
         }
     }
@@ -29,7 +29,7 @@ impl TodoListService {
         };
         self.tasks.insert(name, task);
         if let Err(e) = self.save_to_file() {
-            eprintln!("Error saving changes: {}", e);
+            eprintln!("Error saving changes: {e}");
         }
         println!("Task added successfully!");
     }
@@ -38,7 +38,7 @@ impl TodoListService {
         if let Some(task) = self.tasks.get_mut(name) {
             task.status = true;
             if let Err(e) = self.save_to_file() {
-                eprintln!("Error saving changes: {}", e);
+                eprintln!("Error saving changes: {e}");
             }
             println!("Task marked as done!");
         } else {
@@ -79,15 +79,15 @@ impl TodoListService {
                 updated_task.category = new_category;
             }
 
-            if updated_task.name != task.name {
+            if updated_task.name == task.name {
+                self.tasks.insert(name.to_string(), updated_task);
+            } else {
                 self.tasks.remove(name);
                 self.tasks.insert(updated_task.name.clone(), updated_task);
-            } else {
-                self.tasks.insert(name.to_string(), updated_task);
             }
 
             if let Err(e) = self.save_to_file() {
-                eprintln!("Error saving changes: {}", e);
+                eprintln!("Error saving changes: {e}");
             }
             println!("Task updated successfully!");
         } else {
@@ -98,7 +98,7 @@ impl TodoListService {
     pub fn delete_task(&mut self, name: &str) {
         if self.tasks.remove(name).is_some() {
             if let Err(e) = self.save_to_file() {
-                eprintln!("Error saving changes: {}", e);
+                eprintln!("Error saving changes: {e}");
             }
             println!("Task deleted successfully!");
         } else {
@@ -108,7 +108,7 @@ impl TodoListService {
 
     pub fn select_tasks(&self, predicate: &str) {
         println!("self.tasks.values(): {:?}", self.tasks.values());
-        println!("predicate: {:?}", predicate);
+        println!("predicate: {predicate:?}");
         //
         //
         if predicate.is_empty() {
@@ -117,7 +117,7 @@ impl TodoListService {
            
         if predicate == "*" {
             for task in self.tasks.values() {
-            println!("{:#?}", task);
+            println!("{task:#?}");
             }
             return;
         }
@@ -131,7 +131,7 @@ impl TodoListService {
             println!("No tasks match the given criteria.");
         } else {
             for task in filtered_tasks {
-                println!("{:#?}", task);
+                println!("{task:#?}");
             }
         }
     }
@@ -190,9 +190,7 @@ impl TodoListService {
             "test" => "test_db.json",
             _ => "db.json",
         };
-        env::var("TODO_FILE")
-            .map(PathBuf::from)
-            .unwrap_or_else(|_| PathBuf::from(file_name))
+        env::var("TODO_FILE").map_or_else(|_| PathBuf::from(file_name), PathBuf::from)
     }
 
 
@@ -214,7 +212,8 @@ impl TodoListService {
             .read(true)
             .write(true)
             .create(true)
-            .open(&path);
+            .truncate(true)
+            .open(path);
 
         match file {
             Ok(mut file) => {
@@ -223,19 +222,19 @@ impl TodoListService {
                     Ok(_) => {
                         if contents.trim().is_empty() {
                             println!("File is empty. Creating a new TodoListService.");
-                            let new_service = TodoListService::new();
+                            let new_service = Self::new();
                             if let Err(e) = new_service.save_to_file() {
-                                eprintln!("Error saving new TodoListService: {}. Proceeding with in-memory service.", e);
+                                eprintln!("Error saving new TodoListService: {e}. Proceeding with in-memory service.");
                             }
                             new_service
                         } else {
                             match serde_json::from_str(&contents) {
                                 Ok(service) => service,
                                 Err(e) => {
-                                    eprintln!("Error parsing JSON: {}. Creating a new TodoListService.", e);
-                                    let new_service = TodoListService::new();
+                                    eprintln!("Error parsing JSON: {e}. Creating a new TodoListService.");
+                                    let new_service = Self::new();
                                     if let Err(e) = new_service.save_to_file() {
-                                        eprintln!("Error saving new TodoListService: {}. Proceeding with in-memory service.", e);
+                                        eprintln!("Error saving new TodoListService: {e}. Proceeding with in-memory service.");
                                     }
                                     new_service
                                 }
@@ -243,20 +242,20 @@ impl TodoListService {
                         }
                     },
                     Err(e) => {
-                        eprintln!("Error reading file: {}. Creating a new TodoListService.", e);
-                        let new_service = TodoListService::new();
+                        eprintln!("Error reading file: {e}. Creating a new TodoListService.");
+                        let new_service = Self::new();
                         if let Err(e) = new_service.save_to_file() {
-                            eprintln!("Error saving new TodoListService: {}. Proceeding with in-memory service.", e);
+                            eprintln!("Error saving new TodoListService: {e}. Proceeding with in-memory service.");
                         }
                         new_service
                     }
                 }
             },
             Err(e) => {
-                eprintln!("Error opening file: {}. Creating a new TodoListService.", e);
-                let new_service = TodoListService::new();
+                eprintln!("Error opening file: {e}. Creating a new TodoListService.");
+                let new_service = Self::new();
                 if let Err(e) = new_service.save_to_file() {
-                    eprintln!("Error saving new TodoListService: {}. Proceeding with in-memory service.", e);
+                    eprintln!("Error saving new TodoListService: {e}. Proceeding with in-memory service.");
                 }
                 new_service
             }
@@ -289,7 +288,7 @@ mod tests {
         let task = todo_list.tasks.get(&name).unwrap();
         assert_eq!(task.description, description);
         assert_eq!(task.category, category);
-        assert_eq!(task.status, false);
+        assert!(!task.status);
     }
 
     #[test]
@@ -302,7 +301,7 @@ mod tests {
         todo_list.mark_done(&name);
 
         let task = todo_list.tasks.get(&name).unwrap();
-        assert_eq!(task.status, true);
+        assert!(task.status);
     }
 
     #[test]
