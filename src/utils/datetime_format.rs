@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc, NaiveDateTime, TimeZone};
 use serde::{self, Deserialize, Serializer, Deserializer};
 
-const FORMAT: &str = "%Y-%m-%d %H:%M";
+const FORMAT: &str = "%d-%m-%Y %H:%M";
 
 pub fn serialize<S>(
     date: &DateTime<Utc>,

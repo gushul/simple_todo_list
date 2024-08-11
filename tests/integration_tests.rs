@@ -90,7 +90,7 @@ fn test_add_and_done_task() {
     let (mut cmd, temp_dir) = create_todo_list_command();
 
     cmd.arg("add")
-        .arg("Test Task")
+        .arg("Test_done_task")
         .arg("Test Description")
         .arg("1-1-2021 12:00")
         .arg("Test Category")
@@ -100,7 +100,7 @@ fn test_add_and_done_task() {
     let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("done")
-        .arg("Test Task")
+        .arg("Test_done_task")
         .assert()
         .success()
         .stdout(predicate::str::contains("Task marked as done!"));
@@ -108,10 +108,9 @@ fn test_add_and_done_task() {
     let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
-        .arg("status = \"on\"")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Test Task"));
+        .stdout(predicate::str::contains("status: true"));
 }
 
 #[test]
@@ -142,35 +141,51 @@ fn test_add_and_delete_task() {
         .success()
         .stdout(predicate::str::contains("No tasks match the given criteria."));
 }
-
 #[test]
 fn test_add_and_update_task() {
     let (mut cmd, temp_dir) = create_todo_list_command();
 
+    // Add a task
     cmd.arg("add")
-        .arg("Test Task")
+        .arg("TestTask")
         .arg("Test Description")
         .arg("1-1-2021 12:00")
         .arg("Test Category")
         .assert()
-        .success();
-
-    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
-    cmd.arg("update")
-        .arg("Test Task")
-        .write_stdin("Updated Task\nUpdated Description\nUpdated Category\n")
-        .assert()
         .success()
-        .stdout(predicate::str::contains("Task updated successfully!"));
+        .stdout(predicate::str::contains("Task added successfully!"));
 
+    // Verify the task was added
     let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("*")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Updated Task")
+        .stdout(predicate::str::contains("TestTask")
+            .and(predicate::str::contains("Test Description"))
+            .and(predicate::str::contains("Test Category")));
+
+    // Update the task
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
+    cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
+        .arg("update")
+        .arg("TestTask")
+        .write_stdin("UpdatedTask\nUpdated Description\n1-1-2022 12:00\nUpdated Category\n")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Task updated successfully!"));
+
+    // Verify the task was updated
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
+    cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
+        .arg("select")
+        .arg("*")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("UpdatedTask")
             .and(predicate::str::contains("Updated Description"))
+            .and(predicate::str::contains("2022-01-01T12:00:00Z"))
             .and(predicate::str::contains("Updated Category")));
 }
 

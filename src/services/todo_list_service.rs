@@ -65,7 +65,7 @@ impl TodoListService {
             io::stdin().read_line(&mut new_description).expect("Failed to read line from stdin");
             new_description = new_description.trim().to_string();
 
-            print!("New date in format 'Y-%m-%d %H:%M'({}): ", task.date);
+            print!("New date in format <'DD-MM-YYYY HH:MM'>({}): ", task.date.to_rfc2822());
             io::stdout().flush().expect("Failed to flush stdout");
             let mut new_date_string = String::new();
             io::stdin().read_line(&mut new_date_string).expect("Failed to read line from stdin");
@@ -126,26 +126,22 @@ impl TodoListService {
         }
     }
 
-    pub fn select_tasks(&self, predicate: &str) {
-        println!("self.tasks.values(): {:?}", self.tasks.values());
-        println!("predicate: {predicate:?}");
-        //
-        //
-        if predicate.is_empty() {
-            println!("No tasks match the given criteria.");
-        }
-           
-        if predicate == "*" {
-            for task in self.tasks.values() {
-            println!("{task:#?}");
-            }
-            return;
-        }
+    pub fn select_tasks(&self, input: &str) {
+        let (all_tasks, predicate) = if input.trim() == "*" {
+            (true, "")
+        } else if input.starts_with("* where ") {
+            (false, input.trim_start_matches("* where ").trim())
+        } else {
+            (false, input.trim())
+        };
 
-        //
-        let filtered_tasks: Vec<&Task> = self.tasks.values()
-            .filter(|task| Self::evaluate_predicate(task, predicate))
-            .collect();
+        let filtered_tasks: Vec<&Task> = if all_tasks {
+            self.tasks.values().collect()
+        } else {
+            self.tasks.values()
+                .filter(|task| Self::evaluate_predicate(task, predicate))
+                .collect()
+        };
 
         if filtered_tasks.is_empty() {
             println!("No tasks match the given criteria.");
@@ -162,17 +158,21 @@ impl TodoListService {
         }
 
         let conditions: Vec<&str> = predicate.split(" and ").collect();
+               
         conditions.iter().all(|&condition| {
             let parts: Vec<&str> = condition.split_whitespace().collect();
-            if parts.len() != 3 {
+
+
+
+            if parts.len() < 3 || parts.len() > 4  {
                 return false;
             }
 
-            let (field, operator, value) = (parts[0], parts[1], parts[2]);
+            let (field, operator, value) = (parts[0], parts[1], &parts[2..].join(" "));
             match field {
+                "name" => Self::compare_string(&task.name, operator, value),
                 "date" => Self::compare_date(&task.date, operator, value),
                 "category" => Self::compare_string(&task.category, operator, value),
-                "status" => Self::compare_status(task.status, operator, value),
                 "description" => Self::compare_string(&task.description, operator, value),
                 _ => false,
             }
@@ -188,26 +188,22 @@ impl TodoListService {
     }
 
     fn compare_date(date: &DateTime<Utc>, operator: &str, value: &str) -> bool {
-        let compare_date = match NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M") {
+        let compared_date = match NaiveDateTime::parse_from_str(value, "%d-%m-%Y %H:%M") {
             Ok(date) => date,
             Err(e) => {
                 eprintln!("Error parsing date and time: {e}");
                 return false; 
             }
         };
+
+        println!("operatorn: {operator}");
         match operator {
-            "<" => date.naive_local() < compare_date,
-            "<=" => date.naive_local() <= compare_date,
-            "=" => date.naive_local() == compare_date,
-            ">=" => date.naive_local() >= compare_date,
-            ">" => date.naive_local() > compare_date,
+            "<" => date.naive_local() < compared_date,
+            "=" => date.naive_local() == compared_date,
+            ">=" => date.naive_local() >= compared_date,
+            ">" => date.naive_local() > compared_date,
             _ => false,
         }
-    }
-
-    fn compare_status(status: bool, operator: &str, value: &str) -> bool {
-        let compare_status = value.trim_matches('"') == "on";
-        operator == "=" && status == compare_status
     }
 
     fn get_file_path() -> PathBuf {

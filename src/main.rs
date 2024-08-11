@@ -15,23 +15,38 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Add a new task to the todo list
     Add {
+        /// The name of the task
         name: String,
+        /// A description of the task
         description: String,
+        /// The due date of the task in format DD-MM-YYYY HH:MM
         date: String,
+        /// The category of the task
         category: String,
     },
+    /// Mark a task as done
     Done {
+        /// The name of the task to mark as done
         name: String,
     },
+    /// Update an existing task
     Update {
+        /// The name of the task to update
         name: String,
     },
+    /// Delete a task from the todo list
     Delete {
+        /// The name of the task to delete
         name: String,
     },
+    /// Select and display tasks based on a predicate
     Select {
-        predicate: String,
+        /// The predicate to filter tasks. Use '\*' to select all tasks.
+        /// For filtering, use the format: "* where <condition>"
+        /// Example: "\* where date < '2023-12-31 00:00' and category=work and status=on and description like project"
+        predicate: Vec<String>,
     },
 }
 
@@ -63,8 +78,12 @@ fn main() {
             service.delete_task(name);
         }
         Some(Commands::Select { predicate }) => {
-            println!("Selecting tasks with predicate: {predicate}");
-            service.select_tasks(predicate);
+            let predicate_str = if predicate.is_empty() {
+                "*".to_string()
+            } else {
+                predicate.join(" ")
+            };
+            service.select_tasks(&predicate_str);
         }
         None => {
             println!("No command was used");
