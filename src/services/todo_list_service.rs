@@ -6,6 +6,8 @@ use std::env;
 use chrono::{DateTime, Utc, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use crate::models::task::Task;
+use crate::utils::date;
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TodoListService {
@@ -51,29 +53,47 @@ impl TodoListService {
             println!("Enter new details (press Enter to keep current value):");
             
             print!("New name ({}): ", task.name);
-            io::stdout().flush().unwrap();
+            io::stdout().flush().expect("Failed to flush stdout");
+
             let mut new_name = String::new();
-            io::stdin().read_line(&mut new_name).unwrap();
+            io::stdin().read_line(&mut new_name).expect("Failed to read line from stdin");
             new_name = new_name.trim().to_string();
             
             print!("New description ({}): ", task.description);
-            io::stdout().flush().unwrap();
+            io::stdout().flush().expect("Failed to flush stdout");
             let mut new_description = String::new();
-            io::stdin().read_line(&mut new_description).unwrap();
+            io::stdin().read_line(&mut new_description).expect("Failed to read line from stdin");
             new_description = new_description.trim().to_string();
+
+            print!("New date in format 'Y-%m-%d %H:%M'({}): ", task.date);
+            io::stdout().flush().expect("Failed to flush stdout");
+            let mut new_date_string = String::new();
+            io::stdin().read_line(&mut new_date_string).expect("Failed to read line from stdin");
+            new_date_string = new_date_string.trim().to_string();
+
+            let new_date = match date::parse(new_date_string.as_str()) {
+                Ok(parsed_date) => parsed_date,
+                Err(e) => {
+                    eprintln!("Error parsing date: {e}");
+                    task.date
+                }
+            };
             
             print!("New category ({}): ", task.category);
-            io::stdout().flush().unwrap();
+            io::stdout().flush().expect("Failed to flush stdout");
             let mut new_category = String::new();
-            io::stdin().read_line(&mut new_category).unwrap();
+            io::stdin().read_line(&mut new_category).expect("Failed to read line from stdin");
             new_category = new_category.trim().to_string();
             
             let mut updated_task = task.clone();
             if !new_name.is_empty() && new_name != task.name {
-                updated_task.name = new_name.clone();
+                updated_task.name.clone_from(&new_name);
             }
             if !new_description.is_empty() {
                 updated_task.description = new_description;
+            }
+            if new_date != task.date {
+                updated_task.date = new_date;
             }
             if !new_category.is_empty() {
                 updated_task.category = new_category;
@@ -124,7 +144,7 @@ impl TodoListService {
 
         //
         let filtered_tasks: Vec<&Task> = self.tasks.values()
-            .filter(|task| self.evaluate_predicate(task, predicate))
+            .filter(|task| Self::evaluate_predicate(task, predicate))
             .collect();
 
         if filtered_tasks.is_empty() {
@@ -136,7 +156,7 @@ impl TodoListService {
         }
     }
 
-    fn evaluate_predicate(&self, task: &Task, predicate: &str) -> bool {
+    fn evaluate_predicate(task: &Task, predicate: &str) -> bool {
         if predicate == "*" {
             return true;
         }
@@ -150,16 +170,16 @@ impl TodoListService {
 
             let (field, operator, value) = (parts[0], parts[1], parts[2]);
             match field {
-                "date" => self.compare_date(&task.date, operator, value),
-                "category" => self.compare_string(&task.category, operator, value),
-                "status" => self.compare_status(task.status, operator, value),
-                "description" => self.compare_string(&task.description, operator, value),
+                "date" => Self::compare_date(&task.date, operator, value),
+                "category" => Self::compare_string(&task.category, operator, value),
+                "status" => Self::compare_status(task.status, operator, value),
+                "description" => Self::compare_string(&task.description, operator, value),
                 _ => false,
             }
         })
     }
 
-    fn compare_string(&self, field: &str, operator: &str, value: &str) -> bool {
+    fn compare_string(field: &str, operator: &str, value: &str) -> bool {
         match operator {
             "=" => field == value.trim_matches('"'),
             "like" => field.contains(value.trim_matches('"')),
@@ -167,8 +187,14 @@ impl TodoListService {
         }
     }
 
-    fn compare_date(&self, date: &DateTime<Utc>, operator: &str, value: &str) -> bool {
-        let compare_date = NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M").unwrap();
+    fn compare_date(date: &DateTime<Utc>, operator: &str, value: &str) -> bool {
+        let compare_date = match NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M") {
+            Ok(date) => date,
+            Err(e) => {
+                eprintln!("Error parsing date and time: {e}");
+                return false; 
+            }
+        };
         match operator {
             "<" => date.naive_local() < compare_date,
             "<=" => date.naive_local() <= compare_date,
@@ -179,7 +205,7 @@ impl TodoListService {
         }
     }
 
-    fn compare_status(&self, status: bool, operator: &str, value: &str) -> bool {
+    fn compare_status(status: bool, operator: &str, value: &str) -> bool {
         let compare_status = value.trim_matches('"') == "on";
         operator == "=" && status == compare_status
     }
@@ -211,8 +237,6 @@ impl TodoListService {
         let file = OpenOptions::new()
             .read(true)
             .write(true)
-            .create(true)
-            .truncate(true)
             .open(path);
 
         match file {
@@ -285,11 +309,32 @@ mod tests {
         todo_list.add_task(name.clone(), description.clone(), date, category.clone());
 
         assert!(todo_list.tasks.contains_key(&name));
-        let task = todo_list.tasks.get(&name).unwrap();
+
+        let task = todo_list.tasks.get(&name).expect("Task not found in the todo list");
         assert_eq!(task.description, description);
         assert_eq!(task.category, category);
         assert!(!task.status);
     }
+
+    #[test]
+    fn test_update_task() {
+        setup();
+        let mut todo_list = TodoListService::new();
+        let name = "Test Task".to_string();
+        let description = "Test Description".to_string();
+        let date = Utc::now();
+        let category = "Test Category".to_string();
+
+        todo_list.add_task(name.clone(), description.clone(), date, category.clone());
+
+        assert!(todo_list.tasks.contains_key(&name));
+
+        let task = todo_list.tasks.get(&name).expect("Task not found in the todo list");
+        assert_eq!(task.description, description);
+        assert_eq!(task.category, category);
+        assert!(!task.status);
+    }
+
 
     #[test]
     fn test_mark_done() {
@@ -300,7 +345,7 @@ mod tests {
 
         todo_list.mark_done(&name);
 
-        let task = todo_list.tasks.get(&name).unwrap();
+        let task = todo_list.tasks.get(&name).expect("Task not found in the todo list");
         assert!(task.status);
     }
 
@@ -324,7 +369,7 @@ mod tests {
         todo_list.add_task("Task 2".to_string(), "Unit test 2".to_string(), Utc::now(), "Category2".to_string());
 
         let filtered_tasks: Vec<&Task> = todo_list.tasks.values()
-            .filter(|task| todo_list.evaluate_predicate(task, "category = \"Category1\""))
+            .filter(|task| TodoListService::evaluate_predicate(task, "category = \"Category1\""))
             .collect();
 
         assert_eq!(filtered_tasks.len(), 1);

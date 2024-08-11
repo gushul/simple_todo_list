@@ -6,8 +6,9 @@ static TEST_JSON_FILE: &str = "test_db.json";
 
 
 fn create_todo_list_command() -> (Command, tempfile::TempDir) {
-    let temp_dir = tempdir().unwrap();
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let temp_dir = tempdir().expect("Failed to create a temporary directory");
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
+
     cmd.env("APP_ENV", "test")
        .env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE));
     (cmd, temp_dir)
@@ -39,7 +40,7 @@ fn test_add_and_select_task() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("*")
@@ -62,7 +63,7 @@ fn test_add_and_select_all_tasks() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
 
     cmd.arg("add")
         .arg("Task B1")
@@ -73,7 +74,7 @@ fn test_add_and_select_all_tasks() {
         .success();
 
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("*")
@@ -96,7 +97,7 @@ fn test_add_and_done_task() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("done")
         .arg("Test Task")
@@ -104,7 +105,7 @@ fn test_add_and_done_task() {
         .success()
         .stdout(predicate::str::contains("Task marked as done!"));
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("status = \"on\"")
@@ -119,13 +120,13 @@ fn test_add_and_delete_task() {
 
     cmd.arg("add")
         .arg("Test Task")
-        .arg("Test Description")
+        .arg("test_add_and_delete_task Description")
         .arg("1-1-2021 12:00")
         .arg("Test Category")
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("delete")
         .arg("Test Task")
@@ -133,7 +134,7 @@ fn test_add_and_delete_task() {
         .success()
         .stdout(predicate::str::contains("Task deleted successfully!"));
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join("tasks.json"))
         .arg("select")
         .arg("*")
@@ -154,16 +155,15 @@ fn test_add_and_update_task() {
         .assert()
         .success();
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
-    cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
-        .arg("update")
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
+    cmd.arg("update")
         .arg("Test Task")
         .write_stdin("Updated Task\nUpdated Description\nUpdated Category\n")
         .assert()
         .success()
         .stdout(predicate::str::contains("Task updated successfully!"));
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("*")
@@ -189,7 +189,7 @@ fn test_add_multiple_tasks_and_select() {
         .stdout(predicate::str::contains("Task added successfully!"));
 
 
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
 
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("add")
@@ -202,7 +202,7 @@ fn test_add_multiple_tasks_and_select() {
         .stdout(predicate::str::contains("Task added successfully!"));
 
     // Check if all tasks are present
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
 
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
@@ -217,7 +217,7 @@ fn test_add_multiple_tasks_and_select() {
             .and(predicate::str::contains("Category B")));
 
     // Select tasks by category
-    let mut cmd = Command::cargo_bin("todo_list").unwrap();
+    let mut cmd = Command::cargo_bin("todolist").expect("Failed to find the 'todolist' binary");
     cmd.env("TODO_FILE", temp_dir.path().join(TEST_JSON_FILE))
         .arg("select")
         .arg("category = \"Category A\"")

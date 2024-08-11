@@ -3,7 +3,6 @@ mod services;
 mod utils;
 
 use clap::{Parser, Subcommand};
-use chrono::{DateTime, Utc, NaiveDateTime};
 use services::TodoListService;
 use std::env;
 
@@ -36,15 +35,6 @@ enum Commands {
     },
 }
 
-
-fn parse_date(date_str: &str) -> Result<DateTime<Utc>, String> {
-    // Формат даты: "DD-MM-YYYY HH:MM"
-    let parsed_date = NaiveDateTime::parse_from_str(date_str, "%d-%m-%Y %H:%M")
-        .map_err(|e| format!("Error parsing date: {e}"))?;
-
-    Ok(DateTime::<Utc>::from_naive_utc_and_offset(parsed_date, Utc))
-}
-
 fn main() {
     env::set_var("APP_ENV", "production");
 
@@ -53,10 +43,11 @@ fn main() {
 
     match &cli.command {
         Some(Commands::Add { name, description, date, category }) => {
-            match parse_date(date) {
+
+            match utils::date::parse(date) {
                 Ok(parsed_date) => {
                     service.add_task(name.clone(), description.clone(), parsed_date, category.clone());
-               },
+                },
                 Err(e) => {
                     eprintln!("Error parsing date: {e}");
                 }
@@ -72,6 +63,7 @@ fn main() {
             service.delete_task(name);
         }
         Some(Commands::Select { predicate }) => {
+            println!("Selecting tasks with predicate: {predicate}");
             service.select_tasks(predicate);
         }
         None => {
